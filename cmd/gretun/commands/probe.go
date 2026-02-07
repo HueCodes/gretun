@@ -10,13 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	probeTarget    string
-	probeCount     int
-	probeTimeout   time.Duration
-	probeThreshold int
-)
-
 var probeCmd = &cobra.Command{
 	Use:   "probe",
 	Short: "Probe tunnel connectivity",
@@ -27,10 +20,10 @@ var probeCmd = &cobra.Command{
 }
 
 func init() {
-	probeCmd.Flags().StringVar(&probeTarget, "target", "", "target IP to probe (required)")
-	probeCmd.Flags().IntVar(&probeCount, "count", 3, "number of probes to send")
-	probeCmd.Flags().DurationVar(&probeTimeout, "timeout", 2*time.Second, "timeout per probe")
-	probeCmd.Flags().IntVar(&probeThreshold, "threshold", 2, "minimum successful probes for healthy status")
+	probeCmd.Flags().String("target", "", "target IP to probe (required)")
+	probeCmd.Flags().Int("count", 3, "number of probes to send")
+	probeCmd.Flags().Duration("timeout", 2*time.Second, "timeout per probe")
+	probeCmd.Flags().Int("threshold", 2, "minimum successful probes for healthy status")
 
 	probeCmd.MarkFlagRequired("target")
 
@@ -38,7 +31,12 @@ func init() {
 }
 
 func runProbe(cmd *cobra.Command, args []string) error {
-	healthy, results := health.ProbeMultiple(probeTarget, probeCount, probeTimeout, probeThreshold)
+	target, _ := cmd.Flags().GetString("target")
+	count, _ := cmd.Flags().GetInt("count")
+	timeout, _ := cmd.Flags().GetDuration("timeout")
+	threshold, _ := cmd.Flags().GetInt("threshold")
+
+	healthy, results := health.ProbeMultiple(target, count, timeout, threshold)
 
 	if jsonOutput {
 		output := struct {
@@ -47,9 +45,9 @@ func runProbe(cmd *cobra.Command, args []string) error {
 			Threshold int                  `json:"threshold"`
 			Results   []health.ProbeResult `json:"results"`
 		}{
-			Target:    probeTarget,
+			Target:    target,
 			Healthy:   healthy,
-			Threshold: probeThreshold,
+			Threshold: threshold,
 			Results:   results,
 		}
 		enc := json.NewEncoder(os.Stdout)
@@ -61,19 +59,19 @@ func runProbe(cmd *cobra.Command, args []string) error {
 	for i, r := range results {
 		if r.Success {
 			successes++
-			fmt.Printf("probe %d: %s rtt=%v\n", i+1, probeTarget, r.RTT.Round(time.Microsecond))
+			fmt.Printf("probe %d: %s rtt=%v\n", i+1, target, r.RTT.Round(time.Microsecond))
 		} else {
-			fmt.Printf("probe %d: %s error=%s\n", i+1, probeTarget, r.Error)
+			fmt.Printf("probe %d: %s error=%s\n", i+1, target, r.Error)
 		}
 	}
 
-	fmt.Printf("\n%d/%d probes successful\n", successes, probeCount)
+	fmt.Printf("\n%d/%d probes successful\n", successes, count)
 
 	if healthy {
 		fmt.Println("status: healthy")
 	} else {
 		fmt.Println("status: unhealthy")
-		return fmt.Errorf("probe failed: only %d/%d successful (threshold: %d)", successes, probeCount, probeThreshold)
+		return fmt.Errorf("probe failed: only %d/%d successful (threshold: %d)", successes, count, threshold)
 	}
 
 	return nil

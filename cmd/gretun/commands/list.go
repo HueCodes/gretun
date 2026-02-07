@@ -23,7 +23,7 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	tunnels, err := tunnel.List()
+	tunnels, err := tunnel.List(nl)
 	if err != nil {
 		return err
 	}

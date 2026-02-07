@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var statusName string
-
 var statusCmd = &cobra.Command{
 	Use:     "status",
 	Short:   "Show status of a GRE tunnel",
@@ -20,14 +18,16 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	statusCmd.Flags().StringVar(&statusName, "name", "", "tunnel interface name (required)")
+	statusCmd.Flags().String("name", "", "tunnel interface name (required)")
 	statusCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(statusCmd)
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	status, err := tunnel.Get(statusName)
+	name, _ := cmd.Flags().GetString("name")
+
+	status, err := tunnel.Get(nl, name)
 	if err != nil {
 		return err
 	}

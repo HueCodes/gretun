@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var deleteName string
-
 var deleteCmd = &cobra.Command{
 	Use:     "delete",
 	Short:   "Delete a GRE tunnel",
@@ -18,17 +16,19 @@ var deleteCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.Flags().StringVar(&deleteName, "name", "", "tunnel interface name (required)")
+	deleteCmd.Flags().String("name", "", "tunnel interface name (required)")
 	deleteCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(deleteCmd)
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
-	if err := tunnel.Delete(deleteName); err != nil {
+	name, _ := cmd.Flags().GetString("name")
+
+	if err := tunnel.Delete(nl, name); err != nil {
 		return err
 	}
 
-	fmt.Printf("deleted tunnel %s\n", deleteName)
+	fmt.Printf("deleted tunnel %s\n", name)
 	return nil
 }

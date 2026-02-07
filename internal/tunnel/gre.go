@@ -2,13 +2,16 @@ package tunnel
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/vishvananda/netlink"
 )
 
+const defaultTTL = 64
+
 // Create creates a new GRE tunnel with the given configuration.
-func Create(cfg Config) error {
+func Create(nl Netlinker, cfg Config) error {
 	if cfg.Name == "" {
 		return fmt.Errorf("tunnel name is required")
 	}
@@ -20,14 +23,14 @@ func Create(cfg Config) error {
 	}
 
 	// Check if tunnel already exists
-	if _, err := netlink.LinkByName(cfg.Name); err == nil {
+	if _, err := nl.LinkByName(cfg.Name); err == nil {
 		return fmt.Errorf("tunnel %s already exists", cfg.Name)
 	}
 
 	// Set default TTL if not specified
 	ttl := cfg.TTL
 	if ttl == 0 {
-		ttl = 64
+		ttl = defaultTTL
 	}
 
 	gre := &netlink.Gretun{
@@ -41,26 +44,32 @@ func Create(cfg Config) error {
 		Ttl:    ttl,
 	}
 
-	if err := netlink.LinkAdd(gre); err != nil {
+	if err := nl.LinkAdd(gre); err != nil {
 		return fmt.Errorf("failed to create tunnel %s: %w", cfg.Name, err)
 	}
 
-	if err := netlink.LinkSetUp(gre); err != nil {
+	if err := nl.LinkSetUp(gre); err != nil {
 		// Clean up on failure
-		netlink.LinkDel(gre)
+		if delErr := nl.LinkDel(gre); delErr != nil {
+			slog.Warn("failed to clean up tunnel after LinkSetUp error",
+				"tunnel", cfg.Name, "error", delErr)
+		}
 		return fmt.Errorf("failed to bring up tunnel %s: %w", cfg.Name, err)
 	}
+
+	slog.Info("created tunnel", "name", cfg.Name,
+		"local", cfg.LocalIP, "remote", cfg.RemoteIP)
 
 	return nil
 }
 
 // Delete removes a GRE tunnel by name.
-func Delete(name string) error {
+func Delete(nl Netlinker, name string) error {
 	if name == "" {
 		return fmt.Errorf("tunnel name is required")
 	}
 
-	link, err := netlink.LinkByName(name)
+	link, err := nl.LinkByName(name)
 	if err != nil {
 		return fmt.Errorf("tunnel %s not found: %w", name, err)
 	}
@@ -70,16 +79,18 @@ func Delete(name string) error {
 		return fmt.Errorf("%s is not a GRE tunnel (type: %s)", name, link.Type())
 	}
 
-	if err := netlink.LinkDel(link); err != nil {
+	if err := nl.LinkDel(link); err != nil {
 		return fmt.Errorf("failed to delete tunnel %s: %w", name, err)
 	}
+
+	slog.Info("deleted tunnel", "name", name)
 
 	return nil
 }
 
 // AssignIP assigns an IP address to the tunnel interface.
-func AssignIP(name string, cidr string) error {
-	link, err := netlink.LinkByName(name)
+func AssignIP(nl Netlinker, name string, cidr string) error {
+	link, err := nl.LinkByName(name)
 	if err != nil {
 		return fmt.Errorf("tunnel %s not found: %w", name, err)
 	}
@@ -89,7 +100,7 @@ func AssignIP(name string, cidr string) error {
 		return fmt.Errorf("invalid CIDR %s: %w", cidr, err)
 	}
 
-	if err := netlink.AddrAdd(link, addr); err != nil {
+	if err := nl.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to assign IP to %s: %w", name, err)
 	}
 
@@ -97,8 +108,8 @@ func AssignIP(name string, cidr string) error {
 }
 
 // Get retrieves the status of a specific GRE tunnel.
-func Get(name string) (*Status, error) {
-	link, err := netlink.LinkByName(name)
+func Get(nl Netlinker, name string) (*Status, error) {
+	link, err := nl.LinkByName(name)
 	if err != nil {
 		return nil, fmt.Errorf("tunnel %s not found: %w", name, err)
 	}
@@ -118,7 +129,7 @@ func Get(name string) (*Status, error) {
 	}
 
 	// Get assigned IP if any
-	addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+	addrs, err := nl.AddrList(link, netlink.FAMILY_V4)
 	if err == nil && len(addrs) > 0 {
 		status.TunnelIP = addrs[0].IPNet.String()
 	}

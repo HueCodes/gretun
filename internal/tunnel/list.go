@@ -7,8 +7,8 @@ import (
 )
 
 // List returns all GRE tunnels on the system.
-func List() ([]Status, error) {
-	links, err := netlink.LinkList()
+func List(nl Netlinker) ([]Status, error) {
+	links, err := nl.LinkList()
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func List() ([]Status, error) {
 		}
 
 		// Get assigned IP if any
-		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		addrs, err := nl.AddrList(link, netlink.FAMILY_V4)
 		if err == nil && len(addrs) > 0 {
 			status.TunnelIP = addrs[0].IPNet.String()
 		}
