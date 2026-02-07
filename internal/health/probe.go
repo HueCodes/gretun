@@ -10,6 +10,17 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
+const (
+	// icmpIDMask masks the PID to a valid 16-bit ICMP identifier.
+	icmpIDMask = 0xffff
+
+	// defaultMTU is the standard Ethernet MTU used as the reply buffer size.
+	defaultMTU = 1500
+
+	// probeInterval is the delay between consecutive probes.
+	probeInterval = 100 * time.Millisecond
+)
+
 // ProbeResult contains the result of a health probe.
 type ProbeResult struct {
 	Target    string        `json:"target"`
@@ -43,7 +54,7 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 		Type: ipv4.ICMPTypeEcho,
 		Code: 0,
 		Body: &icmp.Echo{
-			ID:   os.Getpid() & 0xffff,
+			ID:   os.Getpid() & icmpIDMask,
 			Seq:  1,
 			Data: []byte("gretun-probe"),
 		},
@@ -64,7 +75,7 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 
 	conn.SetReadDeadline(time.Now().Add(timeout))
 
-	reply := make([]byte, 1500)
+	reply := make([]byte, defaultMTU)
 	n, _, err := conn.ReadFrom(reply)
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to receive reply: %v", err)
@@ -102,7 +113,7 @@ func ProbeMultiple(target string, count int, timeout time.Duration, threshold in
 			successes++
 		}
 		if i < count-1 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(probeInterval)
 		}
 	}
 
