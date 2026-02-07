@@ -1,3 +1,13 @@
 /gretun
 *.exe
 .DS_Store
+
+# Build output
+bin/
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
