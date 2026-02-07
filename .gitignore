@@ -5,6 +5,9 @@
 # Assets (hosted on blog)
 assets/
 
+# Local docs
+INTERVIEW_PREP.md
+
 # Build output
 bin/
 coverage.out
