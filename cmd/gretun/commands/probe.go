@@ -25,7 +25,7 @@ func init() {
 	probeCmd.Flags().Duration("timeout", 2*time.Second, "timeout per probe")
 	probeCmd.Flags().Int("threshold", 2, "minimum successful probes for healthy status")
 
-	probeCmd.MarkFlagRequired("target")
+	_ = probeCmd.MarkFlagRequired("target")
 
 	rootCmd.AddCommand(probeCmd)
 }

@@ -19,7 +19,7 @@ var statusCmd = &cobra.Command{
 
 func init() {
 	statusCmd.Flags().String("name", "", "tunnel interface name (required)")
-	statusCmd.MarkFlagRequired("name")
+	_ = statusCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(statusCmd)
 }

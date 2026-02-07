@@ -26,9 +26,9 @@ func init() {
 	createCmd.Flags().Uint8("ttl", 64, "TTL for tunnel packets")
 	createCmd.Flags().String("tunnel-ip", "", "IP address to assign to tunnel interface (CIDR notation)")
 
-	createCmd.MarkFlagRequired("name")
-	createCmd.MarkFlagRequired("local")
-	createCmd.MarkFlagRequired("remote")
+	_ = createCmd.MarkFlagRequired("name")
+	_ = createCmd.MarkFlagRequired("local")
+	_ = createCmd.MarkFlagRequired("remote")
 
 	rootCmd.AddCommand(createCmd)
 }

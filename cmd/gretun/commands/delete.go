@@ -17,7 +17,7 @@ var deleteCmd = &cobra.Command{
 
 func init() {
 	deleteCmd.Flags().String("name", "", "tunnel interface name (required)")
-	deleteCmd.MarkFlagRequired("name")
+	_ = deleteCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(deleteCmd)
 }

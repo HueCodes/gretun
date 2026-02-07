@@ -73,7 +73,10 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 		return result
 	}
 
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		result.Error = fmt.Sprintf("failed to set deadline: %v", err)
+		return result
+	}
 
 	reply := make([]byte, defaultMTU)
 	n, _, err := conn.ReadFrom(reply)
