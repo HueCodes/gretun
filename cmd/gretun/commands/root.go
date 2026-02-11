@@ -1,10 +1,10 @@
 package commands
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/HueCodes/gretun/internal/capabilities"
 	"github.com/HueCodes/gretun/internal/tunnel"
 	"github.com/spf13/cobra"
 )
@@ -31,10 +31,8 @@ var rootCmd = &cobra.Command{
 			})))
 		}
 
-		if os.Geteuid() != 0 {
-			return fmt.Errorf("gretun requires root privileges (run with sudo)")
-		}
-		return nil
+		// Check for required network administration capabilities
+		return capabilities.CheckNetAdmin()
 	},
 }
 
