@@ -3,6 +3,7 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -74,7 +75,7 @@ func TestCreate(t *testing.T) {
 				tt.setup(m)
 			}
 
-			err := Create(m, tt.cfg)
+			err := Create(context.Background(), m, tt.cfg)
 
 			if tt.wantErr != "" {
 				if err == nil {
@@ -103,7 +104,7 @@ func TestCreate_CleanupOnSetUpFailure(t *testing.T) {
 	m.linkSetUpErr = fmt.Errorf("device busy")
 
 	cfg := Config{Name: "tun0", LocalIP: net.IPv4(1, 2, 3, 4), RemoteIP: net.IPv4(5, 6, 7, 8)}
-	err := Create(m, cfg)
+	err := Create(context.Background(), m, cfg)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -162,7 +163,7 @@ func TestDelete(t *testing.T) {
 				tt.setup(m)
 			}
 
-			err := Delete(m, tt.tunnel)
+			err := Delete(context.Background(), m, tt.tunnel)
 
 			if tt.wantErr != "" {
 				if err == nil {
@@ -230,7 +231,7 @@ func TestAssignIP(t *testing.T) {
 				tt.setup(m)
 			}
 
-			err := AssignIP(m, tt.tunnel, tt.cidr)
+			err := AssignIP(context.Background(), m, tt.tunnel, tt.cidr)
 
 			if tt.wantErr != "" {
 				if err == nil {
@@ -314,7 +315,7 @@ func TestGet(t *testing.T) {
 				tt.setup(m)
 			}
 
-			status, err := Get(m, tt.tunnel)
+			status, err := Get(context.Background(), m, tt.tunnel)
 
 			if tt.wantErr != "" {
 				if err == nil {

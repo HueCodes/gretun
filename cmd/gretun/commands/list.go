@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,7 +24,9 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	tunnels, err := tunnel.List(nl)
+	ctx := context.Background()
+
+	tunnels, err := tunnel.List(ctx, nl)
 	if err != nil {
 		return err
 	}

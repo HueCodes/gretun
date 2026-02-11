@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -36,7 +37,9 @@ func runProbe(cmd *cobra.Command, args []string) error {
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	threshold, _ := cmd.Flags().GetInt("threshold")
 
-	healthy, results := health.ProbeMultiple(target, count, timeout, threshold)
+	ctx := context.Background()
+
+	healthy, results := health.ProbeMultiple(ctx, target, count, timeout, threshold)
 
 	if jsonOutput {
 		output := struct {

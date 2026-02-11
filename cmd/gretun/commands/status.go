@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,7 +28,9 @@ func init() {
 func runStatus(cmd *cobra.Command, args []string) error {
 	name, _ := cmd.Flags().GetString("name")
 
-	status, err := tunnel.Get(nl, name)
+	ctx := context.Background()
+
+	status, err := tunnel.Get(ctx, nl, name)
 	if err != nil {
 		return err
 	}

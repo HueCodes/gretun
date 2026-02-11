@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/HueCodes/gretun/internal/tunnel"
@@ -25,7 +26,9 @@ func init() {
 func runDelete(cmd *cobra.Command, args []string) error {
 	name, _ := cmd.Flags().GetString("name")
 
-	if err := tunnel.Delete(nl, name); err != nil {
+	ctx := context.Background()
+
+	if err := tunnel.Delete(ctx, nl, name); err != nil {
 		return err
 	}
 

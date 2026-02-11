@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -59,14 +60,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		TTL:      ttl,
 	}
 
-	if err := tunnel.Create(nl, cfg); err != nil {
+	ctx := context.Background()
+
+	if err := tunnel.Create(ctx, nl, cfg); err != nil {
 		return err
 	}
 
 	fmt.Printf("created tunnel %s (%s -> %s)\n", name, local, remote)
 
 	if tunnelIP != "" {
-		if err := tunnel.AssignIP(nl, name, tunnelIP); err != nil {
+		if err := tunnel.AssignIP(ctx, nl, name, tunnelIP); err != nil {
 			return fmt.Errorf("tunnel created but failed to assign IP: %w", err)
 		}
 		fmt.Printf("assigned %s to %s\n", tunnelIP, name)

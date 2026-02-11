@@ -3,6 +3,7 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -64,7 +65,7 @@ func TestList(t *testing.T) {
 				tt.setup(m)
 			}
 
-			tunnels, err := List(m)
+			tunnels, err := List(context.Background(), m)
 
 			if tt.wantErr != "" {
 				if err == nil {
@@ -89,7 +90,7 @@ func TestList_TunnelIP(t *testing.T) {
 		{IPNet: &net.IPNet{IP: net.IPv4(192, 168, 1, 1), Mask: net.CIDRMask(30, 32)}},
 	}
 
-	tunnels, err := List(m)
+	tunnels, err := List(context.Background(), m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

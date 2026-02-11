@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -31,10 +32,18 @@ type ProbeResult struct {
 }
 
 // Probe sends an ICMP echo request to the target and waits for a reply.
-func Probe(target string, timeout time.Duration) ProbeResult {
+func Probe(ctx context.Context, target string, timeout time.Duration) ProbeResult {
 	result := ProbeResult{
 		Target:    target,
 		Timestamp: time.Now(),
+	}
+
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		result.Error = fmt.Sprintf("cancelled: %v", ctx.Err())
+		return result
+	default:
 	}
 
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
@@ -73,7 +82,13 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 		return result
 	}
 
-	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+	// Use context deadline if it's sooner than the timeout
+	deadline := time.Now().Add(timeout)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+
+	if err := conn.SetReadDeadline(deadline); err != nil {
 		result.Error = fmt.Sprintf("failed to set deadline: %v", err)
 		return result
 	}
@@ -81,7 +96,13 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 	reply := make([]byte, defaultMTU)
 	n, _, err := conn.ReadFrom(reply)
 	if err != nil {
-		result.Error = fmt.Sprintf("failed to receive reply: %v", err)
+		// Check if context was cancelled
+		select {
+		case <-ctx.Done():
+			result.Error = fmt.Sprintf("cancelled: %v", ctx.Err())
+		default:
+			result.Error = fmt.Sprintf("failed to receive reply: %v", err)
+		}
 		return result
 	}
 
@@ -105,18 +126,31 @@ func Probe(target string, timeout time.Duration) ProbeResult {
 }
 
 // ProbeMultiple sends multiple probes and returns success if threshold is met.
-func ProbeMultiple(target string, count int, timeout time.Duration, threshold int) (bool, []ProbeResult) {
+func ProbeMultiple(ctx context.Context, target string, count int, timeout time.Duration, threshold int) (bool, []ProbeResult) {
 	results := make([]ProbeResult, 0, count)
 	successes := 0
 
 	for i := 0; i < count; i++ {
-		result := Probe(target, timeout)
+		// Check for cancellation before each probe
+		select {
+		case <-ctx.Done():
+			// Return early if cancelled
+			return false, results
+		default:
+		}
+
+		result := Probe(ctx, target, timeout)
 		results = append(results, result)
 		if result.Success {
 			successes++
 		}
 		if i < count-1 {
-			time.Sleep(probeInterval)
+			// Use context-aware sleep
+			select {
+			case <-time.After(probeInterval):
+			case <-ctx.Done():
+				return false, results
+			}
 		}
 	}
 
