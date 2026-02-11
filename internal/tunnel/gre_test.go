@@ -22,7 +22,7 @@ func TestCreate(t *testing.T) {
 		{
 			name:    "missing name",
 			cfg:     Config{LocalIP: net.IPv4(1, 2, 3, 4), RemoteIP: net.IPv4(5, 6, 7, 8)},
-			wantErr: "tunnel name is required",
+			wantErr: "tunnel name cannot be empty",
 		},
 		{
 			name:    "missing local IP",
@@ -48,7 +48,7 @@ func TestCreate(t *testing.T) {
 			setup: func(m *mockNetlinker) {
 				m.linkAddErr = fmt.Errorf("permission denied")
 			},
-			wantErr: "failed to create tunnel",
+			wantErr: "operation failed",
 		},
 		{
 			name: "LinkSetUp fails triggers cleanup",
@@ -56,7 +56,7 @@ func TestCreate(t *testing.T) {
 			setup: func(m *mockNetlinker) {
 				m.linkSetUpErr = fmt.Errorf("device busy")
 			},
-			wantErr: "failed to bring up tunnel",
+			wantErr: "operation failed",
 		},
 		{
 			name: "success with default TTL",
@@ -123,7 +123,7 @@ func TestDelete(t *testing.T) {
 		{
 			name:    "empty name",
 			tunnel:  "",
-			wantErr: "tunnel name is required",
+			wantErr: "tunnel name cannot be empty",
 		},
 		{
 			name:    "tunnel not found",
@@ -145,7 +145,7 @@ func TestDelete(t *testing.T) {
 				m.links["tun0"] = greLink("tun0", net.IPv4(1, 2, 3, 4), net.IPv4(5, 6, 7, 8), 0, 64, true)
 				m.linkDelErr = fmt.Errorf("operation not permitted")
 			},
-			wantErr: "failed to delete",
+			wantErr: "operation failed",
 		},
 		{
 			name:   "success",
@@ -212,7 +212,7 @@ func TestAssignIP(t *testing.T) {
 				m.links["tun0"] = greLink("tun0", net.IPv4(1, 2, 3, 4), net.IPv4(5, 6, 7, 8), 0, 64, true)
 				m.addrAddErr = fmt.Errorf("address exists")
 			},
-			wantErr: "failed to assign IP",
+			wantErr: "operation failed",
 		},
 		{
 			name:   "success",

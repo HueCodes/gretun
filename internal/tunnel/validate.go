@@ -77,6 +77,14 @@ func ValidateCIDR(cidr string) error {
 		return fmt.Errorf("CIDR %q is not an IPv4 address", cidr)
 	}
 
+	// Get prefix length
+	ones, _ := ipNet.Mask.Size()
+
+	// For /32, there's only one address, so network/broadcast checks don't apply
+	if ones == 32 {
+		return nil
+	}
+
 	// Check if IP is the network address (first address in the subnet)
 	if ip.Equal(ipNet.IP) {
 		return fmt.Errorf("CIDR %q uses network address (first address in subnet), which is typically reserved",
