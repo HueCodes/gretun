@@ -61,28 +61,24 @@ func TestValidateTunnelName(t *testing.T) {
 			errMsg:  "invalid characters",
 		},
 		{
-			name:    "reserved prefix - lo",
+			name:    "reserved prefix - lo (allowed in name validation)",
 			input:   "lo0",
-			wantErr: true,
-			errMsg:  "reserved prefix",
+			wantErr: false,
 		},
 		{
-			name:    "reserved prefix - eth",
+			name:    "reserved prefix - eth (allowed in name validation)",
 			input:   "eth99",
-			wantErr: true,
-			errMsg:  "reserved prefix",
+			wantErr: false,
 		},
 		{
-			name:    "reserved prefix - docker",
+			name:    "reserved prefix - docker (allowed in name validation)",
 			input:   "docker0",
-			wantErr: true,
-			errMsg:  "reserved prefix",
+			wantErr: false,
 		},
 		{
-			name:    "reserved prefix - br-",
+			name:    "reserved prefix - br- (allowed in name validation)",
 			input:   "br-12345",
-			wantErr: true,
-			errMsg:  "reserved prefix",
+			wantErr: false,
 		},
 		{
 			name:    "max length valid",
@@ -429,6 +425,26 @@ func TestValidateConfig(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "cannot be a multicast",
+		},
+		{
+			name: "reserved prefix eth",
+			cfg: Config{
+				Name:     "eth99",
+				LocalIP:  net.ParseIP("10.0.0.1"),
+				RemoteIP: net.ParseIP("10.0.0.2"),
+			},
+			wantErr: true,
+			errMsg:  "reserved prefix",
+		},
+		{
+			name: "reserved prefix docker",
+			cfg: Config{
+				Name:     "docker0",
+				LocalIP:  net.ParseIP("10.0.0.1"),
+				RemoteIP: net.ParseIP("10.0.0.2"),
+			},
+			wantErr: true,
+			errMsg:  "reserved prefix",
 		},
 	}
 
