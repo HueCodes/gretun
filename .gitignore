@@ -8,6 +8,12 @@ assets/
 # Local docs
 INTERVIEW_PREP.md
 
+# Planning docs
+IMPLEMENTATION_SUMMARY.md
+PRODUCTION_READY_PLAN.md
+*_PLAN.md
+*_SUMMARY.md
+
 # Build output
 bin/
 coverage.out
