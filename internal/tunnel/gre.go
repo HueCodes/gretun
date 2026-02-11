@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,20 +12,22 @@ import (
 const defaultTTL = 64
 
 // Create creates a new GRE tunnel with the given configuration.
-func Create(nl Netlinker, cfg Config) error {
-	if cfg.Name == "" {
-		return fmt.Errorf("tunnel name is required")
+func Create(ctx context.Context, nl Netlinker, cfg Config) error {
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
-	if cfg.LocalIP == nil {
-		return fmt.Errorf("local IP is required")
-	}
-	if cfg.RemoteIP == nil {
-		return fmt.Errorf("remote IP is required")
+
+	// Validate configuration
+	if err := ValidateConfig(cfg); err != nil {
+		return err
 	}
 
 	// Check if tunnel already exists
 	if _, err := nl.LinkByName(cfg.Name); err == nil {
-		return fmt.Errorf("tunnel %s already exists", cfg.Name)
+		return &TunnelExistsError{Name: cfg.Name}
 	}
 
 	// Set default TTL if not specified
@@ -45,7 +48,7 @@ func Create(nl Netlinker, cfg Config) error {
 	}
 
 	if err := nl.LinkAdd(gre); err != nil {
-		return fmt.Errorf("failed to create tunnel %s: %w", cfg.Name, err)
+		return TranslateNetlinkError(err, "create", cfg.Name)
 	}
 
 	if err := nl.LinkSetUp(gre); err != nil {
@@ -54,7 +57,7 @@ func Create(nl Netlinker, cfg Config) error {
 			slog.Warn("failed to clean up tunnel after LinkSetUp error",
 				"tunnel", cfg.Name, "error", delErr)
 		}
-		return fmt.Errorf("failed to bring up tunnel %s: %w", cfg.Name, err)
+		return TranslateNetlinkError(err, "create", cfg.Name)
 	}
 
 	slog.Info("created tunnel", "name", cfg.Name,
@@ -64,23 +67,33 @@ func Create(nl Netlinker, cfg Config) error {
 }
 
 // Delete removes a GRE tunnel by name.
-func Delete(nl Netlinker, name string) error {
+func Delete(ctx context.Context, nl Netlinker, name string) error {
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	if name == "" {
 		return fmt.Errorf("tunnel name is required")
 	}
 
 	link, err := nl.LinkByName(name)
 	if err != nil {
-		return fmt.Errorf("tunnel %s not found: %w", name, err)
+		return &TunnelNotFoundError{Name: name}
 	}
 
 	// Verify it is a GRE tunnel
 	if link.Type() != "gre" {
-		return fmt.Errorf("%s is not a GRE tunnel (type: %s)", name, link.Type())
+		return &InvalidTypeError{
+			Name:       name,
+			ActualType: link.Type(),
+		}
 	}
 
 	if err := nl.LinkDel(link); err != nil {
-		return fmt.Errorf("failed to delete tunnel %s: %w", name, err)
+		return TranslateNetlinkError(err, "delete", name)
 	}
 
 	slog.Info("deleted tunnel", "name", name)
@@ -89,34 +102,62 @@ func Delete(nl Netlinker, name string) error {
 }
 
 // AssignIP assigns an IP address to the tunnel interface.
-func AssignIP(nl Netlinker, name string, cidr string) error {
+func AssignIP(ctx context.Context, nl Netlinker, name string, cidr string) error {
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Validate tunnel name
+	if err := ValidateTunnelName(name); err != nil {
+		return err
+	}
+
+	// Validate CIDR
+	if err := ValidateCIDR(cidr); err != nil {
+		return err
+	}
+
 	link, err := nl.LinkByName(name)
 	if err != nil {
-		return fmt.Errorf("tunnel %s not found: %w", name, err)
+		return &TunnelNotFoundError{Name: name}
 	}
 
 	addr, err := netlink.ParseAddr(cidr)
 	if err != nil {
+		// This shouldn't happen since we already validated, but handle it anyway
 		return fmt.Errorf("invalid CIDR %s: %w", cidr, err)
 	}
 
 	if err := nl.AddrAdd(link, addr); err != nil {
-		return fmt.Errorf("failed to assign IP to %s: %w", name, err)
+		return TranslateNetlinkError(err, "assign-ip", name)
 	}
 
 	return nil
 }
 
 // Get retrieves the status of a specific GRE tunnel.
-func Get(nl Netlinker, name string) (*Status, error) {
+func Get(ctx context.Context, nl Netlinker, name string) (*Status, error) {
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	link, err := nl.LinkByName(name)
 	if err != nil {
-		return nil, fmt.Errorf("tunnel %s not found: %w", name, err)
+		return nil, &TunnelNotFoundError{Name: name}
 	}
 
 	gre, ok := link.(*netlink.Gretun)
 	if !ok {
-		return nil, fmt.Errorf("%s is not a GRE tunnel", name)
+		return nil, &InvalidTypeError{
+			Name:       name,
+			ActualType: link.Type(),
+		}
 	}
 
 	status := &Status{
@@ -128,8 +169,8 @@ func Get(nl Netlinker, name string) (*Status, error) {
 		Up:       link.Attrs().Flags&net.FlagUp != 0,
 	}
 
-	// Get assigned IP if any
-	addrs, err := nl.AddrList(link, netlink.FAMILY_V4)
+	// Get assigned IP if any (0 = all address families)
+	addrs, err := nl.AddrList(link, 0)
 	if err == nil && len(addrs) > 0 {
 		status.TunnelIP = addrs[0].IPNet.String()
 	}

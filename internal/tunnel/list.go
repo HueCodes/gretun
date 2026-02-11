@@ -1,13 +1,21 @@
 package tunnel
 
 import (
+	"context"
 	"net"
 
 	"github.com/vishvananda/netlink"
 )
 
 // List returns all GRE tunnels on the system.
-func List(nl Netlinker) ([]Status, error) {
+func List(ctx context.Context, nl Netlinker) ([]Status, error) {
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	links, err := nl.LinkList()
 	if err != nil {
 		return nil, err
@@ -33,8 +41,8 @@ func List(nl Netlinker) ([]Status, error) {
 			Up:       link.Attrs().Flags&net.FlagUp != 0,
 		}
 
-		// Get assigned IP if any
-		addrs, err := nl.AddrList(link, netlink.FAMILY_V4)
+		// Get assigned IP if any (0 = all address families)
+		addrs, err := nl.AddrList(link, 0)
 		if err == nil && len(addrs) > 0 {
 			status.TunnelIP = addrs[0].IPNet.String()
 		}
