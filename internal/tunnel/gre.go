@@ -75,8 +75,9 @@ func Delete(ctx context.Context, nl Netlinker, name string) error {
 	default:
 	}
 
-	if name == "" {
-		return fmt.Errorf("tunnel name is required")
+	// Validate tunnel name
+	if err := ValidateTunnelName(name); err != nil {
+		return err
 	}
 
 	link, err := nl.LinkByName(name)
