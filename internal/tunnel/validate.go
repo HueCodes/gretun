@@ -47,16 +47,6 @@ func ValidateTunnelName(name string) error {
 			name)
 	}
 
-	// Check for reserved prefixes (warn, don't error)
-	for _, prefix := range reservedPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			// This is a warning, but we'll allow it - just make it clear in the message
-			// that it might conflict with system interfaces
-			return fmt.Errorf("tunnel name %q uses reserved prefix %q which may conflict with system interfaces",
-				name, prefix)
-		}
-	}
-
 	return nil
 }
 
@@ -160,6 +150,15 @@ func ValidateConfig(cfg Config) error {
 	if err := ValidateTunnelName(cfg.Name); err != nil {
 		return err
 	}
+
+	// Check for reserved prefixes when creating (warning for users)
+	for _, prefix := range reservedPrefixes {
+		if strings.HasPrefix(cfg.Name, prefix) {
+			return fmt.Errorf("tunnel name %q uses reserved prefix %q which may conflict with system interfaces",
+				cfg.Name, prefix)
+		}
+	}
+
 
 	if err := ValidateIP(cfg.LocalIP, "local IP"); err != nil {
 		return err
