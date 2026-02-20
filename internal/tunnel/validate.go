@@ -10,7 +10,9 @@ import (
 )
 
 const (
-	// Linux interface name max length (IFNAMSIZ - 1)
+	// maxInterfaceNameLength is the maximum number of characters allowed in a
+	// Linux network interface name, derived from IFNAMSIZ (16) minus the NUL
+	// terminator.
 	maxInterfaceNameLength = 15
 )
 

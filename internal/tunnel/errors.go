@@ -13,6 +13,7 @@ type TunnelError struct {
 	Err     error  // Underlying error, if any
 }
 
+// Error returns a human-readable description of the tunnel error.
 func (e *TunnelError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s tunnel %s: %s: %v", e.Op, e.Tunnel, e.Message, e.Err)
@@ -20,6 +21,7 @@ func (e *TunnelError) Error() string {
 	return fmt.Sprintf("%s tunnel %s: %s", e.Op, e.Tunnel, e.Message)
 }
 
+// Unwrap returns the underlying error, enabling errors.Is and errors.As unwrapping.
 func (e *TunnelError) Unwrap() error {
 	return e.Err
 }
@@ -29,6 +31,7 @@ type TunnelExistsError struct {
 	Name string
 }
 
+// Error returns a message indicating that the named tunnel already exists.
 func (e *TunnelExistsError) Error() string {
 	return fmt.Sprintf("tunnel %s already exists", e.Name)
 }
@@ -44,6 +47,7 @@ type TunnelNotFoundError struct {
 	Name string
 }
 
+// Error returns a message indicating that the named tunnel was not found.
 func (e *TunnelNotFoundError) Error() string {
 	return fmt.Sprintf("tunnel %s not found", e.Name)
 }
@@ -61,6 +65,7 @@ type ValidationError struct {
 	Message string // Validation error message
 }
 
+// Error returns a human-readable description of the validation failure.
 func (e *ValidationError) Error() string {
 	if e.Value != "" {
 		return fmt.Sprintf("validation failed for %s (%q): %s", e.Field, e.Value, e.Message)
@@ -81,6 +86,7 @@ type PermissionError struct {
 	Message string
 }
 
+// Error returns a message describing the permission failure.
 func (e *PermissionError) Error() string {
 	return fmt.Sprintf("permission denied: %s tunnel %s: %s", e.Op, e.Tunnel, e.Message)
 }
@@ -98,6 +104,7 @@ type InvalidTypeError struct {
 	ExpectedType string
 }
 
+// Error returns a message indicating that the interface is not the expected tunnel type.
 func (e *InvalidTypeError) Error() string {
 	if e.ExpectedType != "" {
 		return fmt.Sprintf("%s is not a %s tunnel (type: %s)", e.Name, e.ExpectedType, e.ActualType)

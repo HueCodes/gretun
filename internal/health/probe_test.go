@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -99,5 +100,69 @@ func TestConstants(t *testing.T) {
 	}
 	if probeInterval != 100*time.Millisecond {
 		t.Errorf("probeInterval = %v, want 100ms", probeInterval)
+	}
+}
+
+func TestProbeTargets_EmptyTargets(t *testing.T) {
+	ctx := context.Background()
+	results := ProbeTargets(ctx, nil, time.Second, 5)
+	if len(results) != 0 {
+		t.Errorf("expected empty map for nil targets, got %d entries", len(results))
+	}
+
+	results = ProbeTargets(ctx, []string{}, time.Second, 5)
+	if len(results) != 0 {
+		t.Errorf("expected empty map for empty targets, got %d entries", len(results))
+	}
+}
+
+func TestProbeTargets_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling
+
+	targets := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}
+	results := ProbeTargets(ctx, targets, time.Second, 2)
+
+	// All results that were recorded should be marked as failed/cancelled.
+	for target, r := range results {
+		if r.Success {
+			t.Errorf("target %s: expected failure with cancelled context, got success", target)
+		}
+		if r.Error == "" {
+			t.Errorf("target %s: expected non-empty error with cancelled context", target)
+		}
+	}
+}
+
+func TestProbeTargets_ConcurrencyClamp(t *testing.T) {
+	// Concurrency <= 0 should clamp to len(targets) without panicking.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	targets := []string{"10.0.0.1", "10.0.0.2"}
+
+	// Should not panic with concurrency=0 or negative.
+	_ = ProbeTargets(ctx, targets, time.Millisecond, 0)
+	_ = ProbeTargets(ctx, targets, time.Millisecond, -1)
+	// concurrency > len(targets) also clamped.
+	_ = ProbeTargets(ctx, targets, time.Millisecond, 100)
+}
+
+func TestProbeTargets_ContextDeadline(t *testing.T) {
+	// Use an already-expired deadline so no real ICMP goes out.
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	targets := []string{"10.0.0.1"}
+	results := ProbeTargets(ctx, targets, time.Second, 1)
+
+	// The context was expired before the call; result should reflect failure.
+	r, ok := results["10.0.0.1"]
+	if !ok {
+		// The target may have been skipped entirely due to pre-cancelled ctx - that's valid.
+		return
+	}
+	if r.Success {
+		t.Error("expected failure with expired deadline context")
 	}
 }

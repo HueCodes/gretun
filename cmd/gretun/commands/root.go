@@ -1,6 +1,9 @@
+//go:build linux
+
 package commands
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -11,7 +14,7 @@ import (
 
 var (
 	jsonOutput bool
-	nl         = tunnel.DefaultNetlinker{}
+	nl         tunnel.Netlinker
 )
 
 var rootCmd = &cobra.Command{
@@ -32,7 +35,17 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Check for required network administration capabilities
-		return capabilities.CheckNetAdmin()
+		if err := capabilities.CheckNetAdmin(); err != nil {
+			return err
+		}
+
+		netlinkHandle, err := tunnel.NewDefaultNetlinker()
+		if err != nil {
+			return fmt.Errorf("failed to init netlink: %w", err)
+		}
+		nl = netlinkHandle
+
+		return nil
 	},
 }
 
@@ -41,6 +54,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose logging to stderr")
 }
 
+// Execute runs the root cobra command and returns any error.
 func Execute() error {
 	return rootCmd.Execute()
 }
