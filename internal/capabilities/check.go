@@ -23,17 +23,12 @@ func CheckNetAdmin() error {
 	// could use the kernel capabilities API to check for CAP_NET_ADMIN
 	// specifically, but checking for root is sufficient for most use cases.
 	if os.Geteuid() != 0 {
-		return fmt.Errorf(`requires root privileges or CAP_NET_ADMIN capability
-
-GRE tunnel operations require network administration capabilities.
-Please run with sudo:
-  sudo gretun [command]
-
-Alternatively, you can grant CAP_NET_ADMIN to the binary:
-  sudo setcap cap_net_admin+ep $(which gretun)
-
-Note: Using setcap allows running without sudo, but be aware of
-the security implications of granting capabilities to binaries.`)
+		return fmt.Errorf("requires root privileges or CAP_NET_ADMIN capability\n\n" +
+			"GRE tunnel operations require network administration capabilities.\n" +
+			"Please run with sudo:\n" +
+			"  sudo gretun [command]\n\n" +
+			"Alternatively, grant CAP_NET_ADMIN to the binary:\n" +
+			"  sudo setcap cap_net_admin+ep $(which gretun)")
 	}
 
 	return nil
