@@ -2,22 +2,20 @@
 *.exe
 .DS_Store
 
-# Assets (hosted on blog)
-assets/
+# Build output
+bin/
+coverage.out
 
-# Local docs
+# Planning/prep docs
 INTERVIEW_PREP.md
 WORK_LOG.md
-
-# Planning docs
 IMPLEMENTATION_SUMMARY.md
 PRODUCTION_READY_PLAN.md
 *_PLAN.md
 *_SUMMARY.md
 
-# Build output
-bin/
-coverage.out
+# Assets
+assets/
 
 # IDE
 .idea/
