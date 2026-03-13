@@ -15,24 +15,20 @@ const defaultTTL = 64
 
 // Create creates a new GRE tunnel with the given configuration.
 func Create(ctx context.Context, nl Netlinker, cfg Config) error {
-	// Check for cancellation
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	// Validate configuration
 	if err := ValidateConfig(cfg); err != nil {
 		return err
 	}
 
-	// Check if tunnel already exists
 	if _, err := nl.LinkByName(cfg.Name); err == nil {
 		return &TunnelExistsError{Name: cfg.Name}
 	}
 
-	// Set default TTL if not specified
 	ttl := cfg.TTL
 	if ttl == 0 {
 		ttl = defaultTTL
@@ -54,7 +50,6 @@ func Create(ctx context.Context, nl Netlinker, cfg Config) error {
 	}
 
 	if err := nl.LinkSetUp(gre); err != nil {
-		// Clean up on failure
 		if delErr := nl.LinkDel(gre); delErr != nil {
 			slog.Warn("failed to clean up tunnel after LinkSetUp error",
 				"tunnel", cfg.Name, "error", delErr)
@@ -70,14 +65,12 @@ func Create(ctx context.Context, nl Netlinker, cfg Config) error {
 
 // Delete removes a GRE tunnel by name.
 func Delete(ctx context.Context, nl Netlinker, name string) error {
-	// Check for cancellation
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	// Validate tunnel name
 	if err := ValidateTunnelName(name); err != nil {
 		return err
 	}
@@ -87,7 +80,6 @@ func Delete(ctx context.Context, nl Netlinker, name string) error {
 		return &TunnelNotFoundError{Name: name}
 	}
 
-	// Verify it is a GRE tunnel
 	if link.Type() != "gre" {
 		return &InvalidTypeError{
 			Name:       name,
@@ -104,21 +96,18 @@ func Delete(ctx context.Context, nl Netlinker, name string) error {
 	return nil
 }
 
-// AssignIP assigns an IP address to the tunnel interface.
+// AssignIP assigns an IP address in CIDR notation to the tunnel interface.
 func AssignIP(ctx context.Context, nl Netlinker, name string, cidr string) error {
-	// Check for cancellation
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	// Validate tunnel name
 	if err := ValidateTunnelName(name); err != nil {
 		return err
 	}
 
-	// Validate CIDR
 	if err := ValidateCIDR(cidr); err != nil {
 		return err
 	}
@@ -130,7 +119,6 @@ func AssignIP(ctx context.Context, nl Netlinker, name string, cidr string) error
 
 	addr, err := netlink.ParseAddr(cidr)
 	if err != nil {
-		// This shouldn't happen since we already validated, but handle it anyway
 		return fmt.Errorf("invalid CIDR %s: %w", cidr, err)
 	}
 
@@ -143,7 +131,6 @@ func AssignIP(ctx context.Context, nl Netlinker, name string, cidr string) error
 
 // Get retrieves the status of a specific GRE tunnel.
 func Get(ctx context.Context, nl Netlinker, name string) (*Status, error) {
-	// Check for cancellation
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -172,8 +159,7 @@ func Get(ctx context.Context, nl Netlinker, name string) (*Status, error) {
 		Up:       link.Attrs().Flags&net.FlagUp != 0,
 	}
 
-	// Get assigned IP if any (0 = all address families)
-	addrs, err := nl.AddrList(link, 0)
+	addrs, err := nl.AddrList(link, 0) // 0 = all address families
 	if err == nil && len(addrs) > 0 {
 		status.TunnelIP = addrs[0].IPNet.String()
 	}

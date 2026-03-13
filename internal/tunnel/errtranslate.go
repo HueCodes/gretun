@@ -8,27 +8,21 @@ import (
 	"syscall"
 )
 
-// TranslateNetlinkError translates common netlink/syscall errors to user-friendly custom error types.
-// This helps provide better error messages to users instead of cryptic syscall errors.
+// TranslateNetlinkError converts common netlink/syscall errors into
+// user-friendly custom error types with actionable messages.
 func TranslateNetlinkError(err error, op string, name string) error {
 	if err == nil {
 		return nil
 	}
 
-	// Unwrap to get the underlying error
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
 		switch errno {
 		case syscall.EEXIST:
-			// File/link already exists
 			return &TunnelExistsError{Name: name}
-
 		case syscall.ENODEV:
-			// No such device
 			return &TunnelNotFoundError{Name: name}
-
 		case syscall.EPERM, syscall.EACCES:
-			// Permission denied
 			return &PermissionError{
 				Op:      op,
 				Tunnel:  name,
@@ -36,7 +30,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			}
 
 		case syscall.EINVAL:
-			// Invalid argument - often means bad configuration
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
@@ -45,7 +38,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			}
 
 		case syscall.EOPNOTSUPP:
-			// Operation not supported - GRE module might not be loaded
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
@@ -54,7 +46,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			}
 
 		case syscall.EBUSY:
-			// Device or resource busy
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
@@ -63,7 +54,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			}
 
 		case syscall.ENETDOWN:
-			// Network is down
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
@@ -72,7 +62,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			}
 
 		case syscall.EADDRINUSE:
-			// Address already in use
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
@@ -82,7 +71,6 @@ func TranslateNetlinkError(err error, op string, name string) error {
 		}
 	}
 
-	// If we can't translate it, wrap it in a generic TunnelError
 	return &TunnelError{
 		Op:      op,
 		Tunnel:  name,
@@ -91,15 +79,13 @@ func TranslateNetlinkError(err error, op string, name string) error {
 	}
 }
 
-// WrapValidationError wraps a validation error with field context.
-// If the error is already a ValidationError, it returns it as-is.
-// Otherwise, it creates a new ValidationError.
+// WrapValidationError wraps an error with field context. If err is already
+// a ValidationError, it is returned as-is.
 func WrapValidationError(field string, value string, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	// If it's already a ValidationError, return it
 	if _, ok := err.(*ValidationError); ok {
 		return err
 	}
@@ -111,8 +97,7 @@ func WrapValidationError(field string, value string, err error) error {
 	}
 }
 
-// IsTransientError checks if an error is likely transient and could succeed on retry.
-// Transient errors include resource busy, network down, etc.
+// IsTransientError reports whether err is likely transient and could succeed on retry.
 func IsTransientError(err error) bool {
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
@@ -124,10 +109,8 @@ func IsTransientError(err error) bool {
 	return false
 }
 
-// IsFatalError checks if an error is fatal and should not be retried.
-// Fatal errors include permission denied, not supported, invalid argument, etc.
+// IsFatalError reports whether err is fatal and should not be retried.
 func IsFatalError(err error) bool {
-	// Check for our custom error types that are fatal
 	if IsPermission(err) || IsValidation(err) {
 		return true
 	}
@@ -142,14 +125,13 @@ func IsFatalError(err error) bool {
 	return false
 }
 
-// ErrorHint provides a helpful hint for resolving an error.
-// Returns an empty string if no specific hint is available.
+// ErrorHint returns actionable advice for resolving an error, or empty string
+// if no specific hint is available.
 func ErrorHint(err error) string {
 	if err == nil {
 		return ""
 	}
 
-	// Check custom error types first
 	if IsPermission(err) {
 		return "Run with sudo or grant CAP_NET_ADMIN: sudo setcap cap_net_admin+ep $(which gretun)"
 	}
@@ -162,7 +144,6 @@ func ErrorHint(err error) string {
 		return "Use 'gretun list' to see available tunnels"
 	}
 
-	// Check syscall errors
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
 		switch errno {
@@ -181,7 +162,6 @@ func ErrorHint(err error) string {
 }
 
 // FormatError formats an error with an optional hint for the user.
-// This is useful for CLI output to provide actionable information.
 func FormatError(err error) string {
 	if err == nil {
 		return ""

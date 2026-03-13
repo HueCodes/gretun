@@ -11,7 +11,6 @@ import (
 
 // List returns all GRE tunnels on the system.
 func List(ctx context.Context, nl Netlinker) ([]Status, error) {
-	// Check for cancellation
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -43,8 +42,7 @@ func List(ctx context.Context, nl Netlinker) ([]Status, error) {
 			Up:       link.Attrs().Flags&net.FlagUp != 0,
 		}
 
-		// Get assigned IP if any (0 = all address families)
-		addrs, err := nl.AddrList(link, 0)
+		addrs, err := nl.AddrList(link, 0) // 0 = all address families
 		if err == nil && len(addrs) > 0 {
 			status.TunnelIP = addrs[0].IPNet.String()
 		}

@@ -7,21 +7,10 @@ import (
 	"os"
 )
 
-// CheckNetAdmin checks if the process has the necessary capabilities
-// to manage network interfaces (CAP_NET_ADMIN or root).
-//
-// On Linux, GRE tunnel operations require network administration capabilities,
-// which are typically obtained by either:
-// 1. Running as root (euid == 0)
-// 2. Having CAP_NET_ADMIN capability set on the binary
-//
-// Returns nil if the process has the required capabilities, or an error
-// with a helpful message if it doesn't.
+// CheckNetAdmin verifies that the process has network administration
+// privileges (root or CAP_NET_ADMIN), which are required for GRE
+// tunnel operations on Linux.
 func CheckNetAdmin() error {
-	// Check if running as root (euid == 0)
-	// Note: This is a simple check. A more sophisticated implementation
-	// could use the kernel capabilities API to check for CAP_NET_ADMIN
-	// specifically, but checking for root is sufficient for most use cases.
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("requires root privileges or CAP_NET_ADMIN capability\n\n" +
 			"GRE tunnel operations require network administration capabilities.\n" +

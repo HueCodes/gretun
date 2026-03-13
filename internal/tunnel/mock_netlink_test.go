@@ -9,14 +9,10 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// mockNetlinker is a hand-written mock for the Netlinker interface.
 type mockNetlinker struct {
-	// Stored links keyed by name.
 	links map[string]netlink.Link
-	// Stored addresses keyed by link name.
 	addrs map[string][]netlink.Addr
 
-	// Error injection.
 	linkAddErr   error
 	linkDelErr   error
 	linkSetUpErr error
@@ -24,7 +20,6 @@ type mockNetlinker struct {
 	addrAddErr   error
 	addrListErr  error
 
-	// Call tracking.
 	linkAddCalled   bool
 	linkDelCalled   bool
 	linkSetUpCalled bool
@@ -69,7 +64,6 @@ func (m *mockNetlinker) LinkSetUp(link netlink.Link) error {
 	if m.linkSetUpErr != nil {
 		return m.linkSetUpErr
 	}
-	// Set the Up flag on the link.
 	attrs := link.Attrs()
 	attrs.Flags |= net.FlagUp
 	return nil

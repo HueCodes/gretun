@@ -17,23 +17,15 @@ const (
 )
 
 var (
-	// Valid interface name pattern: alphanumeric, hyphens, underscores
 	validInterfaceNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-	// Reserved interface name prefixes that should not be used
+	// reservedPrefixes are interface name prefixes that may conflict with system interfaces.
 	reservedPrefixes = []string{
-		"lo",      // loopback
-		"eth",     // ethernet (commonly used by system)
-		"wlan",    // wireless
-		"docker",  // docker interfaces
-		"veth",    // virtual ethernet
-		"br-",     // bridge
-		"virbr",   // virtual bridge
+		"lo", "eth", "wlan", "docker", "veth", "br-", "virbr",
 	}
 )
 
 // ValidateTunnelName validates a tunnel interface name.
-// Returns an error if the name is invalid.
 func ValidateTunnelName(name string) error {
 	if name == "" {
 		return fmt.Errorf("tunnel name cannot be empty")
@@ -52,8 +44,7 @@ func ValidateTunnelName(name string) error {
 	return nil
 }
 
-// ValidateCIDR validates a CIDR notation IP address.
-// Returns an error if the CIDR is invalid or uses network/broadcast addresses.
+// ValidateCIDR validates a CIDR notation IP address, rejecting network and broadcast addresses.
 func ValidateCIDR(cidr string) error {
 	if cidr == "" {
 		return fmt.Errorf("CIDR cannot be empty")
@@ -64,33 +55,28 @@ func ValidateCIDR(cidr string) error {
 		return fmt.Errorf("invalid CIDR notation %q: %w", cidr, err)
 	}
 
-	// Check if it's IPv4 (GRE tunnels typically use IPv4)
 	if ip.To4() == nil {
 		return fmt.Errorf("CIDR %q is not an IPv4 address", cidr)
 	}
 
-	// Get prefix length
 	ones, _ := ipNet.Mask.Size()
 
-	// For /32, there's only one address, so network/broadcast checks don't apply
+	// /32 has a single address — network/broadcast checks don't apply.
 	if ones == 32 {
 		return nil
 	}
 
-	// Check if IP is the network address (first address in the subnet)
 	if ip.Equal(ipNet.IP) {
 		return fmt.Errorf("CIDR %q uses network address (first address in subnet), which is typically reserved",
 			cidr)
 	}
 
-	// Calculate broadcast address
 	broadcast := make(net.IP, len(ipNet.IP))
 	copy(broadcast, ipNet.IP)
 	for i := range broadcast {
 		broadcast[i] |= ^ipNet.Mask[i]
 	}
 
-	// Check if IP is the broadcast address (last address in the subnet)
 	if ip.Equal(broadcast) {
 		return fmt.Errorf("CIDR %q uses broadcast address (last address in subnet), which is reserved",
 			cidr)
@@ -99,29 +85,24 @@ func ValidateCIDR(cidr string) error {
 	return nil
 }
 
-// ValidateIP validates an IP address.
-// Returns an error if the IP is invalid, loopback, or unspecified.
+// ValidateIP validates an IP address, rejecting loopback, unspecified, multicast, and IPv6.
 func ValidateIP(ip net.IP, fieldName string) error {
 	if ip == nil {
 		return fmt.Errorf("%s is required", fieldName)
 	}
 
-	// Check for unspecified address (0.0.0.0 or ::)
 	if ip.IsUnspecified() {
 		return fmt.Errorf("%s cannot be unspecified (0.0.0.0)", fieldName)
 	}
 
-	// Check for loopback (127.0.0.0/8 or ::1)
 	if ip.IsLoopback() {
 		return fmt.Errorf("%s cannot be loopback address (%s)", fieldName, ip.String())
 	}
 
-	// Check if it's IPv4
 	if ip.To4() == nil {
 		return fmt.Errorf("%s must be an IPv4 address (got %s)", fieldName, ip.String())
 	}
 
-	// Check for multicast addresses
 	if ip.IsMulticast() {
 		return fmt.Errorf("%s cannot be a multicast address (%s)", fieldName, ip.String())
 	}
@@ -129,16 +110,12 @@ func ValidateIP(ip net.IP, fieldName string) error {
 	return nil
 }
 
-// ValidateTTL validates a TTL value.
-// TTL of 0 is allowed (means use default), otherwise must be 1-255.
+// ValidateTTL validates a TTL value. Zero means "use default".
 func ValidateTTL(ttl uint8) error {
-	// TTL of 0 is valid (it means use the default)
 	if ttl == 0 {
 		return nil
 	}
 
-	// TTL must be at least 1 if specified
-	// Note: uint8 max is 255, so we don't need to check upper bound
 	if ttl < 1 {
 		return fmt.Errorf("TTL must be 0 (default) or between 1-255 (got %d)", ttl)
 	}
@@ -147,20 +124,17 @@ func ValidateTTL(ttl uint8) error {
 }
 
 // ValidateConfig performs comprehensive validation on a tunnel configuration.
-// This is a convenience function that validates all fields.
 func ValidateConfig(cfg Config) error {
 	if err := ValidateTunnelName(cfg.Name); err != nil {
 		return err
 	}
 
-	// Check for reserved prefixes when creating (warning for users)
 	for _, prefix := range reservedPrefixes {
 		if strings.HasPrefix(cfg.Name, prefix) {
 			return fmt.Errorf("tunnel name %q uses reserved prefix %q which may conflict with system interfaces",
 				cfg.Name, prefix)
 		}
 	}
-
 
 	if err := ValidateIP(cfg.LocalIP, "local IP"); err != nil {
 		return err
@@ -170,7 +144,6 @@ func ValidateConfig(cfg Config) error {
 		return err
 	}
 
-	// Check that local and remote IPs are different
 	if cfg.LocalIP.Equal(cfg.RemoteIP) {
 		return fmt.Errorf("local IP and remote IP cannot be the same (%s)", cfg.LocalIP.String())
 	}

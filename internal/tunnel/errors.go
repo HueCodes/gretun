@@ -13,7 +13,6 @@ type TunnelError struct {
 	Err     error  // Underlying error, if any
 }
 
-// Error returns a human-readable description of the tunnel error.
 func (e *TunnelError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s tunnel %s: %s: %v", e.Op, e.Tunnel, e.Message, e.Err)
@@ -21,7 +20,6 @@ func (e *TunnelError) Error() string {
 	return fmt.Sprintf("%s tunnel %s: %s", e.Op, e.Tunnel, e.Message)
 }
 
-// Unwrap returns the underlying error, enabling errors.Is and errors.As unwrapping.
 func (e *TunnelError) Unwrap() error {
 	return e.Err
 }
@@ -31,12 +29,11 @@ type TunnelExistsError struct {
 	Name string
 }
 
-// Error returns a message indicating that the named tunnel already exists.
 func (e *TunnelExistsError) Error() string {
 	return fmt.Sprintf("tunnel %s already exists", e.Name)
 }
 
-// IsTunnelExists checks if an error is a TunnelExistsError.
+// IsTunnelExists reports whether err is a TunnelExistsError.
 func IsTunnelExists(err error) bool {
 	_, ok := err.(*TunnelExistsError)
 	return ok
@@ -47,12 +44,11 @@ type TunnelNotFoundError struct {
 	Name string
 }
 
-// Error returns a message indicating that the named tunnel was not found.
 func (e *TunnelNotFoundError) Error() string {
 	return fmt.Sprintf("tunnel %s not found", e.Name)
 }
 
-// IsTunnelNotFound checks if an error is a TunnelNotFoundError.
+// IsTunnelNotFound reports whether err is a TunnelNotFoundError.
 func IsTunnelNotFound(err error) bool {
 	_, ok := err.(*TunnelNotFoundError)
 	return ok
@@ -65,7 +61,6 @@ type ValidationError struct {
 	Message string // Validation error message
 }
 
-// Error returns a human-readable description of the validation failure.
 func (e *ValidationError) Error() string {
 	if e.Value != "" {
 		return fmt.Sprintf("validation failed for %s (%q): %s", e.Field, e.Value, e.Message)
@@ -73,7 +68,7 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("validation failed for %s: %s", e.Field, e.Message)
 }
 
-// IsValidation checks if an error is a ValidationError.
+// IsValidation reports whether err is a ValidationError.
 func IsValidation(err error) bool {
 	_, ok := err.(*ValidationError)
 	return ok
@@ -86,12 +81,11 @@ type PermissionError struct {
 	Message string
 }
 
-// Error returns a message describing the permission failure.
 func (e *PermissionError) Error() string {
 	return fmt.Sprintf("permission denied: %s tunnel %s: %s", e.Op, e.Tunnel, e.Message)
 }
 
-// IsPermission checks if an error is a PermissionError.
+// IsPermission reports whether err is a PermissionError.
 func IsPermission(err error) bool {
 	_, ok := err.(*PermissionError)
 	return ok
@@ -104,7 +98,6 @@ type InvalidTypeError struct {
 	ExpectedType string
 }
 
-// Error returns a message indicating that the interface is not the expected tunnel type.
 func (e *InvalidTypeError) Error() string {
 	if e.ExpectedType != "" {
 		return fmt.Sprintf("%s is not a %s tunnel (type: %s)", e.Name, e.ExpectedType, e.ActualType)
@@ -112,7 +105,7 @@ func (e *InvalidTypeError) Error() string {
 	return fmt.Sprintf("%s is not a GRE tunnel (type: %s)", e.Name, e.ActualType)
 }
 
-// IsInvalidType checks if an error is an InvalidTypeError.
+// IsInvalidType reports whether err is an InvalidTypeError.
 func IsInvalidType(err error) bool {
 	_, ok := err.(*InvalidTypeError)
 	return ok

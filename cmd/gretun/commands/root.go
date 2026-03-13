@@ -22,7 +22,6 @@ var rootCmd = &cobra.Command{
 	Short: "GRE tunnel manager",
 	Long:  "A CLI tool for creating and managing GRE tunnels on Linux.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// version doesn't need root
 		if cmd.Name() == "version" {
 			return nil
 		}
@@ -34,7 +33,6 @@ var rootCmd = &cobra.Command{
 			})))
 		}
 
-		// Check for required network administration capabilities
 		if err := capabilities.CheckNetAdmin(); err != nil {
 			return err
 		}
