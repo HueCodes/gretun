@@ -149,7 +149,7 @@ func (c *CoordClient) Peers(ctx context.Context, since string) ([]RemotePeer, st
 	for _, p := range wire.Peers {
 		eps := make([]RemoteEndpoint, 0, len(p.Endpoints))
 		for _, e := range p.Endpoints {
-			eps = append(eps, RemoteEndpoint{Addr: e.Addr, Source: e.Source})
+			eps = append(eps, RemoteEndpoint(e))
 		}
 		out = append(out, RemotePeer{
 			NodeKey: p.NodeKey, DiscoKey: p.DiscoKey, Name: p.Name,
