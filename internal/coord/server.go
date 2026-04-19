@@ -100,9 +100,7 @@ func (s *Server) handlePeers(w http.ResponseWriter, r *http.Request, _ ed25519.P
 	if since != "" {
 		ctx, cancel := context.WithTimeout(r.Context(), longPollTimeout)
 		defer cancel()
-		if err := s.store.WaitForPeersChange(ctx, since); err != nil && !errors.Is(err, context.DeadlineExceeded) {
-			// Only ctx cancellation by the client is worth logging.
-		}
+		_ = s.store.WaitForPeersChange(ctx, since)
 	}
 	peers, etag, err := s.store.Peers(r.Context())
 	if err != nil {
