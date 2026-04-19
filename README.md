@@ -1,6 +1,6 @@
 # gretun
 
-gretun is a NAT-traversing peer-to-peer GRE overlay for Linux. Two hosts behind consumer NAT can run `gretun up --coordinator <url>` and get a direct, kernel-fastpath GRE tunnel between them without port forwarding, static IPs, or manual config. The control plane uses Ed25519 and Curve25519 disco envelopes (Tailscale-compatible wire format); the data plane is pure kernel GRE-over-FOU.
+gretun is a NAT-traversing peer-to-peer GRE overlay for Linux. Two hosts behind consumer NAT can run `gretun up --coordinator <url>` and get a direct, kernel-fastpath GRE tunnel between them without port forwarding, static IPs, or manual config. The control plane uses Ed25519 and Curve25519 disco envelopes; the data plane is pure kernel GRE-over-FOU.
 
 <div align="center">
 
