@@ -11,7 +11,7 @@
 
 A **NAT-traversing peer-to-peer GRE overlay** for Linux, built as a portfolio piece. Two hosts behind consumer NAT can run `gretun up --coordinator <url>` and get a direct, kernel-fastpath GRE tunnel between them — no port forwarding, no static IPs, no manual config.
 
-## Architecture at a glance
+## Architecture
 
 ```
                    ┌──────────────────────┐
@@ -30,15 +30,6 @@ A **NAT-traversing peer-to-peer GRE overlay** for Linux, built as a portfolio pi
            └───────────────────────────────┘
 ```
 
-## How it works
-
-1. **FOU is the trick.** Bare GRE is IP protocol 47 — no UDP header, so consumer NATs can't map it and it can't be hole-punched. [Linux FOU](https://lwn.net/Articles/614348/) (Foo-over-UDP, kernel 3.18+) wraps the GRE packet in a plain UDP header so the outer is just UDP; now any NAT that can forward UDP works.
-2. **STUN** on a shared userspace UDP socket tells each node its own public `ip:port`.
-3. **Coordinator** (small HTTP server) swaps endpoints between peers and relays [Tailscale-style disco envelopes](https://tailscale.com/blog/how-nat-traversal-works) — 6-byte magic (`TS 💬`) + sender Curve25519 pubkey + NaCl-box sealed body. The coordinator never holds any node's private keys; a compromise leaks only the public peer graph.
-4. **Hole punching.** Each side sends disco `ping` messages to the other's published endpoints; the first `pong` wins. Symmetric NAT detection is built in; the 256-port mitigation is gated behind `--aggressive-punch`.
-5. **Kernel owns the data path.** Once the path is validated, `gretund` calls `FouAdd` + `LinkAdd(Gretun{EncapType:FOU, EncapDport: peer_port})` and steps out. Every packet after that is kernel fastpath.
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full write-up (disco socket / FOU port split, threat model, relay deferral rationale).
 
 ## Quickstart
 
@@ -120,13 +111,6 @@ cd gretun
 make build
 ```
 
-## Honest limitations
-
-- **No encryption on the tunnel.** GRE + FOU are plaintext. For confidentiality over untrusted networks, pair gretun with WireGuard or IPsec at the inner layer. (Encrypting the outer would just reinvent WireGuard.)
-- **No data-plane relay yet.** If two peers can't be hole-punched (e.g. symmetric-NAT on both sides with `--aggressive-punch` off), the daemon reaches `state=relay` and logs — data won't flow. Signaling is always relayable. DERP-style data relay is a natural follow-up; see `docs/ARCHITECTURE.md`.
-- **Symmetric-NAT punching** is detected but the 256-socket mitigation is opt-in (`--aggressive-punch`). It works ~98% of the time at 1,024 probes according to the [Tailscale blog numbers](https://tailscale.com/blog/how-nat-traversal-works).
-- **Linux-only.** The data plane is kernel FOU+GRE. The daemon `log.Fatal`s early on non-Linux. A userspace netstack mode (like `tailscaled --tun=userspace-networking`) is an interesting next step.
-- **No ACLs / tailnet-style policy.** The coordinator is a dumb registry.
 
 ## Testing
 
