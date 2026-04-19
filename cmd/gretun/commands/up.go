@@ -38,6 +38,7 @@ func init() {
 	upCmd.Flags().String("state-dir", def, "directory for persistent keys")
 	upCmd.Flags().Bool("aggressive-punch", false, "use 256-port probing for symmetric NAT (experimental)")
 	upCmd.Flags().StringSlice("stun-server", nil, "STUN server host:port (repeatable)")
+	upCmd.Flags().String("metrics-addr", "", "expose Prometheus /metrics on this host:port (empty = disabled)")
 
 	_ = upCmd.MarkFlagRequired("coordinator")
 	rootCmd.AddCommand(upCmd)
@@ -51,6 +52,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 	stateDir, _ := cmd.Flags().GetString("state-dir")
 	aggressive, _ := cmd.Flags().GetBool("aggressive-punch")
 	stunServers, _ := cmd.Flags().GetStringSlice("stun-server")
+	metricsAddr, _ := cmd.Flags().GetString("metrics-addr")
 
 	nk, dk, err := disco.LoadOrCreateKeys(stateDir)
 	if err != nil {
@@ -65,6 +67,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 		FOUPort:     fouPort,
 		STUNServers: stunServers,
 		Aggressive:  aggressive,
+		MetricsAddr: metricsAddr,
 	}, nl, nk, dk)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

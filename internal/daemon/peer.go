@@ -63,21 +63,23 @@ type peerDeps struct {
 	discoCn    net.PacketConn
 	coord      *disco.CoordClient
 	aggressive bool
+	metrics    *Metrics
 }
 
 // peerFSM owns the per-peer lifecycle.
 type peerFSM struct {
 	deps peerDeps
 
-	mu        sync.Mutex
-	peer      disco.RemotePeer
-	state     peerState
-	winning   netip.AddrPort
-	tunnelUp  bool
-	lastPong  time.Time
-	done      chan struct{}
-	incoming  chan fsmEvent
-	stopOnce  sync.Once
+	mu         sync.Mutex
+	peer       disco.RemotePeer
+	state      peerState
+	winning    netip.AddrPort
+	tunnelUp   bool
+	lastPong   time.Time
+	punchStart time.Time
+	done       chan struct{}
+	incoming   chan fsmEvent
+	stopOnce   sync.Once
 }
 
 type fsmEvent struct {
@@ -216,6 +218,9 @@ func (p *peerFSM) onPeerUpdate(punchDeadline *time.Time) {
 	if has && cur == stateUnknown {
 		p.setState(stateHaveEndpoints)
 		p.setState(statePunching)
+		p.mu.Lock()
+		p.punchStart = time.Now()
+		p.mu.Unlock()
 		*punchDeadline = time.Now().Add(punchAttemptDur)
 	}
 }
@@ -226,13 +231,19 @@ func (p *peerFSM) onDiscoUDP(from netip.AddrPort, body disco.Body, punchDeadline
 		// Reply with pong on same socket to punch in reverse.
 		p.sendPong(from, body.Tx)
 	case disco.MsgPong:
-		// Path validated.
+		if p.deps.metrics != nil {
+			p.deps.metrics.DiscoPongsRecv.Inc()
+		}
 		p.mu.Lock()
 		if p.state != stateDirect {
 			p.winning = from
 			p.lastPong = time.Now()
+			since := time.Since(p.punchStart)
 			p.mu.Unlock()
 			p.setState(stateDirect)
+			if p.deps.metrics != nil && !p.punchStart.IsZero() {
+				p.deps.metrics.HolePunchDuration.Observe(since.Seconds())
+			}
 			p.bringUpTunnel(from)
 		} else {
 			p.lastPong = time.Now()
@@ -311,6 +322,9 @@ func (p *peerFSM) sendPing(to netip.AddrPort) {
 		NodeKey: p.deps.selfNode.B64(),
 	}
 	p.sendDisco(to, body)
+	if p.deps.metrics != nil {
+		p.deps.metrics.DiscoPingsSent.Inc()
+	}
 }
 
 func (p *peerFSM) sendPong(to netip.AddrPort, tx string) {

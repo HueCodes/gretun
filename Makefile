@@ -15,6 +15,7 @@ LDFLAGS := -ldflags "\
 
 build:
 	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) ./cmd/gretun
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY)-coord ./cmd/gretun-coord
 
 test:
 	go test -race ./...

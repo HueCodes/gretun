@@ -12,12 +12,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/HueCodes/gretun/internal/disco"
 	"github.com/HueCodes/gretun/internal/tunnel"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Config configures a daemon instance.
@@ -30,6 +33,7 @@ type Config struct {
 	DiscoAddr   string // UDP address to bind the disco socket on (e.g. ":0")
 	STUNServers []string
 	Aggressive  bool
+	MetricsAddr string // if non-empty, expose Prometheus /metrics here
 }
 
 // Daemon is the top-level runtime. One per process.
@@ -40,12 +44,13 @@ type Daemon struct {
 	disco   disco.DiscoKey
 	client  *disco.CoordClient
 	discoCn net.PacketConn
+	metrics *Metrics
 
-	mu        sync.Mutex
-	peers     map[[32]byte]*peerFSM // keyed by remote disco pubkey
-	self      netip.Addr
-	ifaceSeq  int
-	fouOwned  bool
+	mu       sync.Mutex
+	peers    map[[32]byte]*peerFSM // keyed by remote disco pubkey
+	self     netip.Addr
+	ifaceSeq int
+	fouOwned bool
 }
 
 // New constructs a daemon. The caller still has to call Run.
@@ -109,11 +114,27 @@ func (d *Daemon) Run(ctx context.Context) error {
 		slog.Warn("post endpoints failed", "err", err)
 	}
 
+	if d.cfg.MetricsAddr != "" {
+		reg := prometheus.NewRegistry()
+		d.metrics = NewMetrics(reg)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+		srv := &http.Server{Addr: d.cfg.MetricsAddr, Handler: mux}
+		go func() {
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Warn("metrics server", "err", err)
+			}
+		}()
+		defer srv.Close()
+		slog.Info("metrics listening", "addr", d.cfg.MetricsAddr)
+	}
+
 	errs := make(chan error, 4)
 	go d.discoReadLoop(ctx, errs)
 	go d.signalPullLoop(ctx, errs)
 	go d.peersPollLoop(ctx, errs)
 	go d.refreshLoop(ctx, local.Port, errs)
+	go d.metricsUpdateLoop(ctx)
 
 	select {
 	case <-ctx.Done():
@@ -280,6 +301,7 @@ func (d *Daemon) reconcilePeers(ctx context.Context, peers []disco.RemotePeer) {
 				discoCn:    d.discoCn,
 				coord:      d.client,
 				aggressive: d.cfg.Aggressive,
+				metrics:    d.metrics,
 			}, p)
 			d.peers[p.DiscoKey] = fsm
 			go fsm.run(ctx)
@@ -292,6 +314,36 @@ func (d *Daemon) reconcilePeers(ctx context.Context, peers []disco.RemotePeer) {
 		if !seen[k] {
 			fsm.stop()
 			delete(d.peers, k)
+		}
+	}
+}
+
+// metricsUpdateLoop keeps the peer-state gauge current without plumbing state
+// transitions through a pub-sub channel. It's coarse but cheap.
+func (d *Daemon) metricsUpdateLoop(ctx context.Context) {
+	if d.metrics == nil {
+		return
+	}
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			counts := map[string]int{
+				"unknown": 0, "have_endpoints": 0, "punching": 0, "direct": 0, "relay": 0,
+			}
+			d.mu.Lock()
+			for _, p := range d.peers {
+				p.mu.Lock()
+				counts[p.state.String()]++
+				p.mu.Unlock()
+			}
+			d.mu.Unlock()
+			for s, n := range counts {
+				d.metrics.PeersByState.WithLabelValues(s).Set(float64(n))
+			}
 		}
 	}
 }

@@ -6,6 +6,7 @@ This guide covers common issues you might encounter when using gretun and how to
 
 - [Permission Errors](#permission-errors)
 - [Tunnel Creation Issues](#tunnel-creation-issues)
+- [NAT Traversal Issues](#nat-traversal-issues)
 - [ICMP Probe Failures](#icmp-probe-failures)
 - [Network Connectivity Issues](#network-connectivity-issues)
 - [Kernel Module Issues](#kernel-module-issues)
@@ -110,6 +111,97 @@ sudo gretun create --name tun0 ...
    ```bash
    echo "ip_gre" | sudo tee -a /etc/modules
    ```
+
+---
+
+## NAT Traversal Issues
+
+### Error: "FOU kernel module may be missing"
+
+**Cause:** gretun asked for `--encap fou` or `gretun up` booted a FOU RX port,
+but the kernel doesn't have the `fou` module loaded (or compiled).
+
+**Solutions:**
+
+```bash
+# Load the module
+sudo modprobe fou
+
+# Verify kernel config
+grep CONFIG_NET_FOU /boot/config-$(uname -r)
+# want: CONFIG_NET_FOU=y (or =m)
+#       CONFIG_NET_FOU_IP_TUNNELS=y
+```
+
+### Error: "EADDRINUSE" on the FOU port
+
+**Cause:** Another process (or a previous gretun run) already bound that UDP
+port for FOU. `FouAdd` is safe to retry (EEXIST is tolerated), but if the
+kernel reports EADDRINUSE it usually means a different userspace listener
+is squatting on the port.
+
+**Solutions:**
+
+1. Pick a different `--fou-port` or `--encap-dport`.
+2. Check `ss -ulnp | grep :7777`.
+3. `ip fou show` to confirm any kernel-side port.
+
+### `gretun up` fails with `register: 401`
+
+**Cause:** The coordinator rejected the signed request, most commonly due to:
+
+- clock skew between the node and the coordinator beyond ±60s
+- the node key changed on disk and the coordinator cached the old mapping
+  (not applicable for memstore — coordinator is memstore-only)
+
+**Solutions:**
+
+```bash
+date -u                          # compare both hosts
+rm -r ~/.config/gretun/keys.json # regenerate if keys got corrupted
+```
+
+### Peer stuck in `state=punching`
+
+**Cause:** Hole punching has not completed within the 5-second budget. Common
+reasons:
+
+- One or both peers on symmetric NAT (two STUN servers reported different
+  public ports). Retry with `--aggressive-punch`.
+- The kernel FOU port's NAT mapping is on a different outbound interface
+  than the disco socket's.
+- A firewall (local or ISP) drops inbound UDP from untrusted sources.
+
+**Debug:**
+
+```bash
+# What endpoints is the peer actually advertising?
+curl -s http://coord.example.com:8443/debug/peers | jq
+
+# Is our disco socket sending pings?
+curl -s http://127.0.0.1:9100/metrics | grep disco
+
+# Are we receiving anything?
+sudo tcpdump -i any -n udp and port 7777
+```
+
+### Peer reaches `state=direct` but no data flows
+
+**Cause:** The punch validated the disco socket path, but the FOU port's
+mapping turned out to be different.
+
+**Debug:**
+
+```bash
+ip -d link show gretun0        # look for "encap fou" and the peer IP
+sudo tcpdump -i any -n udp and port 7777
+ping -c 3 100.64.0.2            # the peer's tunnel IP
+```
+
+If the outbound UDP flow's source port at the NAT isn't the one the peer
+has in its `EncapDport`, the kernel won't send (or the NAT won't admit the
+reverse flow). This is the limitation data-plane relay is meant to work
+around; see `docs/ARCHITECTURE.md`.
 
 ---
 
