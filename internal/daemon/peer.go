@@ -274,6 +274,7 @@ func (p *peerFSM) absorbEndpoints(addrs []string) {
 		if err != nil || seen[ap] {
 			continue
 		}
+		seen[ap] = true
 		p.peer.Endpoints = append(p.peer.Endpoints, disco.RemoteEndpoint{Addr: ap, Source: "call_me_maybe"})
 	}
 }
