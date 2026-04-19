@@ -104,19 +104,21 @@ func Create(ctx context.Context, nl Netlinker, cfg Config) error {
 // ensureFOU adds a FOU RX port if one does not already exist for (family, port, proto).
 // Returns true iff this call created the port (caller must FouDel on rollback).
 func ensureFOU(nl Netlinker, cfg Config) (bool, error) {
+	return EnsureFOU(nl, cfg.EncapDport, cfg.Encap)
+}
+
+// EnsureFOU opens a kernel FOU RX port, tolerating an already-present port.
+// Returns true iff this call created the port.
+func EnsureFOU(nl Netlinker, port uint16, encap EncapType) (bool, error) {
 	fou := netlink.Fou{
 		Family:    unix.AF_INET,
-		Port:      int(cfg.EncapDport),
+		Port:      int(port),
 		Protocol:  unix.IPPROTO_GRE,
-		EncapType: fouEncapConst(cfg.Encap),
+		EncapType: fouEncapConst(encap),
 	}
-
-	// GUE encapsulation rejects an IP protocol; the kernel and the netlink
-	// library both enforce this.
-	if cfg.Encap == EncapGUE {
+	if encap == EncapGUE {
 		fou.Protocol = 0
 	}
-
 	if err := nl.FouAdd(fou); err != nil {
 		if errors.Is(err, unix.EEXIST) {
 			return false, nil
@@ -124,6 +126,12 @@ func ensureFOU(nl Netlinker, cfg Config) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// RemoveFOU drops a FOU RX port. Errors are logged but not returned since
+// the port might not exist in cleanup paths.
+func RemoveFOU(nl Netlinker, port uint16) {
+	rollbackFOU(nl, Config{EncapDport: port})
 }
 
 func rollbackFOU(nl Netlinker, cfg Config) {
