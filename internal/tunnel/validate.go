@@ -123,6 +123,43 @@ func ValidateTTL(ttl uint8) error {
 	return nil
 }
 
+// warnPortsNonFatal is a set of well-known UDP ports whose reuse is legal but
+// usually a misconfiguration. We log, not fail.
+var warnPortsNonFatal = map[uint16]string{
+	53:   "DNS",
+	67:   "DHCP server",
+	68:   "DHCP client",
+	123:  "NTP",
+	443:  "HTTPS/QUIC",
+	500:  "IKE",
+	4500: "IPsec NAT-T",
+}
+
+// ValidateEncap validates the encapsulation-related fields on Config.
+// It also warns (via the returned 'warn' string) for dports that collide with
+// well-known services; callers may surface these warnings as they see fit.
+func ValidateEncap(cfg Config) (warn string, err error) {
+	switch cfg.Encap {
+	case EncapNone:
+		// Accept legacy zero values.
+	case EncapFOU, EncapGUE:
+		if cfg.EncapDport == 0 {
+			return "", fmt.Errorf("encap-dport is required when encap=%s", encapTypeName(cfg.Encap))
+		}
+		if svc, ok := warnPortsNonFatal[cfg.EncapDport]; ok {
+			warn = fmt.Sprintf("encap-dport %d collides with well-known %s; continuing", cfg.EncapDport, svc)
+		}
+	default:
+		return "", fmt.Errorf("unknown encap type %d", cfg.Encap)
+	}
+
+	if cfg.MTU != 0 && (cfg.MTU < 576 || cfg.MTU > 9000) {
+		return warn, fmt.Errorf("MTU must be 0 (default) or between 576 and 9000 (got %d)", cfg.MTU)
+	}
+
+	return warn, nil
+}
+
 // ValidateConfig performs comprehensive validation on a tunnel configuration.
 func ValidateConfig(cfg Config) error {
 	if err := ValidateTunnelName(cfg.Name); err != nil {
@@ -149,6 +186,10 @@ func ValidateConfig(cfg Config) error {
 	}
 
 	if err := ValidateTTL(cfg.TTL); err != nil {
+		return err
+	}
+
+	if _, err := ValidateEncap(cfg); err != nil {
 		return err
 	}
 

@@ -4,7 +4,6 @@ package tunnel
 
 import (
 	"context"
-	"net"
 
 	"github.com/vishvananda/netlink"
 )
@@ -33,14 +32,7 @@ func List(ctx context.Context, nl Netlinker) ([]Status, error) {
 			continue
 		}
 
-		status := Status{
-			Name:     link.Attrs().Name,
-			LocalIP:  ipToString(gre.Local),
-			RemoteIP: ipToString(gre.Remote),
-			Key:      gre.IKey,
-			TTL:      gre.Ttl,
-			Up:       link.Attrs().Flags&net.FlagUp != 0,
-		}
+		status := *statusFromGretun(link, gre)
 
 		addrs, err := nl.AddrList(link, 0) // 0 = all address families
 		if err == nil && len(addrs) > 0 {

@@ -12,9 +12,13 @@ type Netlinker interface {
 	LinkDel(link netlink.Link) error
 	LinkByName(name string) (netlink.Link, error)
 	LinkSetUp(link netlink.Link) error
+	LinkSetMTU(link netlink.Link, mtu int) error
 	LinkList() ([]netlink.Link, error)
 	AddrAdd(link netlink.Link, addr *netlink.Addr) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
+	FouAdd(fou netlink.Fou) error
+	FouDel(fou netlink.Fou) error
+	FouList(family int) ([]netlink.Fou, error)
 }
 
 // DefaultNetlinker implements Netlinker using a single persistent netlink.Handle.
@@ -59,6 +63,11 @@ func (nl *DefaultNetlinker) LinkSetUp(link netlink.Link) error {
 	return nl.handle.LinkSetUp(link)
 }
 
+// LinkSetMTU sets the MTU of a link.
+func (nl *DefaultNetlinker) LinkSetMTU(link netlink.Link, mtu int) error {
+	return nl.handle.LinkSetMTU(link, mtu)
+}
+
 // LinkList returns all network links visible to the process.
 func (nl *DefaultNetlinker) LinkList() ([]netlink.Link, error) {
 	return nl.handle.LinkList()
@@ -72,4 +81,20 @@ func (nl *DefaultNetlinker) AddrAdd(link netlink.Link, addr *netlink.Addr) error
 // AddrList returns the addresses assigned to a link for the given address family.
 func (nl *DefaultNetlinker) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return nl.handle.AddrList(link, family)
+}
+
+// FouAdd creates a kernel FOU (Foo-over-UDP) RX port that demuxes the given
+// encapsulated IP protocol. Shared across tunnels that use the same port.
+func (nl *DefaultNetlinker) FouAdd(fou netlink.Fou) error {
+	return nl.handle.FouAdd(fou)
+}
+
+// FouDel removes a kernel FOU RX port.
+func (nl *DefaultNetlinker) FouDel(fou netlink.Fou) error {
+	return nl.handle.FouDel(fou)
+}
+
+// FouList returns the configured FOU ports for the given address family.
+func (nl *DefaultNetlinker) FouList(family int) ([]netlink.Fou, error) {
+	return nl.handle.FouList(family)
 }

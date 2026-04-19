@@ -39,6 +39,26 @@ sudo gretun status --name site-b
 sudo gretun delete --name site-b
 ```
 
+### GRE-over-UDP (FOU)
+
+Bare GRE is IP protocol 47, which can't traverse consumer NAT. Linux [FOU](https://lwn.net/Articles/614348/) (Foo-over-UDP) wraps GRE in a UDP header so it rides over standard UDP NAT mappings.
+
+```bash
+# Host A: listen for FOU-wrapped GRE on UDP/7777, encap outbound to same
+sudo gretun create --name tun0 \
+  --local 192.0.2.1 --remote 192.0.2.2 \
+  --encap fou --encap-dport 7777 \
+  --tunnel-ip 100.64.0.1/30
+
+# Equivalent iproute2 under the hood:
+#   ip fou add port 7777 gue   (or ipproto 47 for fou-direct)
+#   ip link add tun0 type gretap \
+#     local 192.0.2.1 remote 192.0.2.2 \
+#     encap fou encap-sport auto encap-dport 7777 encap-csum
+```
+
+Requires kernel modules `fou` and `ip_gre` (`modprobe fou ip_gre`; kernel config `CONFIG_NET_FOU=y` + `CONFIG_NET_FOU_IP_TUNNELS=y`). MTU defaults to 1468 to accommodate the extra 32-byte outer header (IP 20 + UDP 8 + GRE 4).
+
 All commands support `--json` for machine-readable output and `--verbose` for debug logging.
 
 ## Install

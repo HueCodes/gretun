@@ -41,7 +41,7 @@ func TranslateNetlinkError(err error, op string, name string) error {
 			return &TunnelError{
 				Op:      op,
 				Tunnel:  name,
-				Message: "operation not supported (is the GRE kernel module loaded? try: modprobe ip_gre)",
+				Message: "operation not supported (load kernel modules: modprobe ip_gre; for FOU/GUE: modprobe fou, CONFIG_NET_FOU=y)",
 				Err:     err,
 			}
 
@@ -148,7 +148,7 @@ func ErrorHint(err error) string {
 	if errors.As(err, &errno) {
 		switch errno {
 		case syscall.EOPNOTSUPP:
-			return "Load the GRE kernel module: sudo modprobe ip_gre"
+			return "Load required kernel modules: sudo modprobe ip_gre fou (CONFIG_NET_FOU=y for GRE-over-UDP)"
 		case syscall.EBUSY:
 			return "The tunnel interface may be in use. Try bringing it down first or wait a moment"
 		case syscall.EINVAL:
