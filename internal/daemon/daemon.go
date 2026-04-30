@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -119,13 +120,23 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.metrics = NewMetrics(reg)
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-		srv := &http.Server{Addr: d.cfg.MetricsAddr, Handler: mux}
+		srv := &http.Server{
+			Addr:         d.cfg.MetricsAddr,
+			Handler:      mux,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 35 * time.Second,
+			IdleTimeout:  90 * time.Second,
+		}
 		go func() {
-			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				slog.Warn("metrics server", "err", err)
 			}
 		}()
-		defer srv.Close()
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = srv.Shutdown(shutdownCtx)
+		}()
 		slog.Info("metrics listening", "addr", d.cfg.MetricsAddr)
 	}
 
